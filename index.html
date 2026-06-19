@@ -1,0 +1,687 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Silent SOS</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  html, body { background:#0a0a0a; color:#f5f5f5; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif; }
+  button { font-family: inherit; font-size: 100%; line-height: 1.15; margin: 0; padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; box-sizing: border-box; }
+  button, input { box-sizing: border-box; }
+  input::placeholder { color: rgba(163,163,163,0.45); }
+  input:disabled { opacity: 1; -webkit-text-fill-color: rgba(245,245,245,0.85); }
+
+  .iphone-side-btn {
+    position: absolute;
+    border-radius: 2px 0 0 2px;
+    background: linear-gradient(90deg, #2a2a2a 0%, #4a4a4a 35%, #6a6a6a 55%, #3a3a3a 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.25),
+      inset 0 -1px 0 rgba(0,0,0,0.5),
+      -1px 0 2px rgba(0,0,0,0.6);
+  }
+  .iphone-side-btn.right {
+    border-radius: 0 2px 2px 0;
+    background: linear-gradient(270deg, #2a2a2a 0%, #4a4a4a 35%, #6a6a6a 55%, #3a3a3a 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.25),
+      inset 0 -1px 0 rgba(0,0,0,0.5),
+      1px 0 2px rgba(0,0,0,0.6);
+  }
+  .iphone-power-btn {
+    cursor: pointer;
+    transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.15s ease;
+  }
+  .iphone-power-btn::after {
+    content: "";
+    position: absolute;
+    inset: -10px -14px -10px -6px;
+  }
+  .iphone-power-btn:hover {
+    filter: brightness(1.6);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.45),
+      inset 0 -1px 0 rgba(0,0,0,0.5),
+      1px 0 10px rgba(120,170,255,0.85);
+  }
+  .iphone-power-btn:active,
+  .iphone-power-btn.pressed {
+    transform: translateX(2px);
+    filter: brightness(1.9);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.5),
+      inset 0 -1px 0 rgba(0,0,0,0.4),
+      0 0 0 1px rgba(255,255,255,0.25);
+  }
+  @keyframes pulse-hint {
+    0%,100% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -1px 0 rgba(0,0,0,0.5), 1px 0 2px rgba(0,0,0,0.6), 0 0 0 0 rgba(120,170,255,0); }
+    50%     { box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -1px 0 rgba(0,0,0,0.5), 1px 0 2px rgba(0,0,0,0.6), 0 0 12px 2px rgba(120,170,255,0.35); }
+  }
+  .iphone-power-btn.hint {
+    animation: pulse-hint 2.2s ease-in-out infinite;
+  }
+
+  @keyframes count-pop {
+    0%   { transform: translate(-50%, 0) scale(0.6); opacity: 0; }
+    30%  { transform: translate(-50%, -8px) scale(1.1); opacity: 1; }
+    100% { transform: translate(-50%, -22px) scale(1); opacity: 0; }
+  }
+  .count-pop {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, 0);
+    pointer-events: none;
+    animation: count-pop 0.9s ease-out forwards;
+    font-weight: 700;
+    font-size: 22px;
+    color: white;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.7), 0 0 12px rgba(120,170,255,0.6);
+    z-index: 50;
+  }
+@keyframes sending-dots { 0%,20%{opacity:0.2;} 50%{opacity:1;} 100%{opacity:0.2;} }
+  .sending-text { letter-spacing: 0.04em; }
+  .sending-dot {
+    display: inline-block;
+    opacity: 0.2;
+    animation: sending-dots 1.4s ease-in-out infinite;
+  }
+  .sending-dot:nth-child(1) { animation-delay: 0s; }
+  .sending-dot:nth-child(2) { animation-delay: 0.2s; }
+  .sending-dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bubble-in { 0%{transform:translateY(8px) scale(0.96);opacity:0;} 100%{transform:translateY(0) scale(1);opacity:1;} }
+  .bubble-in { animation: bubble-in 0.35s ease-out both; }
+</style>
+</head>
+<body>
+<div id="root" class="min-h-screen w-full flex flex-col lg:flex-row items-center justify-center gap-8 p-6"></div>
+
+<script>
+const PID_KEY = 'sos_pid';
+const PHONE_NUMBER = '+48 601 234 567';
+
+const $ = (sel, root=document) => root.querySelector(sel);
+const h = (tag, attrs={}, ...children) => {
+  const el = document.createElement(tag);
+  for (const [k,v] of Object.entries(attrs)) {
+    if (k === 'class') el.className = v;
+    else if (k === 'html') el.innerHTML = v;
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2).toLowerCase(), v);
+    else if (v === true) el.setAttribute(k,'');
+    else if (v !== false && v != null) el.setAttribute(k, v);
+  }
+  for (const c of children.flat()) {
+    if (c == null || c === false) continue;
+    el.append(c.nodeType ? c : document.createTextNode(String(c)));
+  }
+  return el;
+};
+
+const SVG = {
+  back: () => `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="#34c759" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`,
+  chevron: () => `<svg class="w-3 h-3 inline-block" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`,
+  camera: () => `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="#8e8e93" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`,
+  appstore: () => `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="#8e8e93"><circle cx="12" cy="12" r="10" fill="none" stroke="#8e8e93" stroke-width="2"/><path d="M8 16l2-3.5M16 16l-3.5-6M9.5 14.5h6" stroke="#8e8e93" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>`,
+  send: () => `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>`,
+  refresh: () => `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>`,
+};
+
+function SendingDots(){
+  return h('span',{},
+    '전송중',
+    h('span',{class:'sending-dot'},'.'),
+    h('span',{class:'sending-dot'},'.'),
+    h('span',{class:'sending-dot'},'.')
+  );
+}
+
+const NIGHT_BG = `background:
+  radial-gradient(ellipse at 20% 80%, rgba(120,80,255,0.18) 0%, transparent 55%),
+  radial-gradient(ellipse at 80% 20%, rgba(50,120,255,0.15) 0%, transparent 50%),
+  radial-gradient(ellipse at 60% 60%, rgba(255,100,80,0.08) 0%, transparent 45%),
+  linear-gradient(170deg,#0d1b2a 0%,#1a1a3e 35%,#0a0a18 70%,#000510 100%);`;
+
+const STARS_BG = `background-image:
+  radial-gradient(1px 1px at 15% 12%, rgba(255,255,255,0.7) 0%, transparent 100%),
+  radial-gradient(1px 1px at 72% 8%, rgba(255,255,255,0.5) 0%, transparent 100%),
+  radial-gradient(1.5px 1.5px at 40% 20%, rgba(255,255,255,0.6) 0%, transparent 100%),
+  radial-gradient(1px 1px at 88% 25%, rgba(255,255,255,0.4) 0%, transparent 100%),
+  radial-gradient(1px 1px at 25% 35%, rgba(255,255,255,0.5) 0%, transparent 100%),
+  radial-gradient(1.5px 1.5px at 60% 15%, rgba(255,255,255,0.65) 0%, transparent 100%),
+  radial-gradient(1px 1px at 5% 28%, rgba(255,255,255,0.4) 0%, transparent 100%),
+  radial-gradient(1px 1px at 93% 40%, rgba(255,255,255,0.35) 0%, transparent 100%),
+  radial-gradient(1px 1px at 50% 5%, rgba(255,255,255,0.55) 0%, transparent 100%),
+  radial-gradient(1px 1px at 33% 10%, rgba(255,255,255,0.4) 0%, transparent 100%);
+pointer-events:none;`;
+
+const state = {
+  mode: 'slide',
+  screen: 'start',
+  recipientName: '',
+  participantId: Number(localStorage.getItem(PID_KEY) || '1'),
+  clickCount: 0,
+  sosTriggerAttempts: 0,
+  sending: false,
+  dragging: false,
+  powerClickCount: 0,
+  powerClickResetTimer: null,
+  tStart: 0, tSetupSaved: 0, tFirstTrigger: 0,
+  tTrigger: 0, tSent: 0, tEnd: 0,
+};
+
+let clockTimer = null, sendTimer = null;
+
+function setScreen(s){ state.screen = s; render(); }
+function trackClick(){ state.clickCount++; }
+
+function resetTrial(){
+  state.recipientName = '';
+  state.clickCount = 0;
+  state.sosTriggerAttempts = 0;
+  state.sending = false;
+  state.dragging = false;
+  state.powerClickCount = 0;
+  if (state.powerClickResetTimer){ clearTimeout(state.powerClickResetTimer); state.powerClickResetTimer = null; }
+  if (sendTimer){ clearTimeout(sendTimer); sendTimer = null; }
+  state.tStart = state.tSetupSaved = state.tFirstTrigger = 0;
+  state.tTrigger = state.tSent = state.tEnd = 0;
+}
+
+function resetAll(){
+  if (!confirm('참가자 번호와 진행 상태를 모두 초기화합니다. 계속할까요?')) return;
+  localStorage.removeItem(PID_KEY);
+  state.participantId = 1;
+  resetTrial();
+  setScreen('start');
+}
+
+function setMode(m){
+  if (state.screen !== 'start') return;
+  state.mode = m;
+  render();
+}
+
+function startExperiment(){
+  trackClick();
+  resetTrial();
+  state.clickCount = 1;
+  state.tStart = performance.now();
+  setScreen('setup');
+}
+
+function saveSetup(){
+  trackClick();
+  state.tSetupSaved = performance.now();
+  setScreen('lock');
+}
+
+function triggerSOS(){
+  if (state.sending) return;
+  state.sosTriggerAttempts++;
+  state.tTrigger = performance.now();
+  if (!state.tFirstTrigger) state.tFirstTrigger = state.tTrigger;
+
+  state.sending = true;
+  render();
+
+  if (sendTimer) clearTimeout(sendTimer);
+  sendTimer = setTimeout(()=>{
+    sendTimer = null;
+    state.sending = false;
+    state.tSent = performance.now();
+    setScreen('message');
+  }, 3000);
+}
+
+function pressPowerButton(){
+  if (state.mode !== 'triple') return;
+  if (state.screen !== 'lock' || state.sending) return;
+  trackClick();
+  state.powerClickCount++;
+
+  const btnEl = document.getElementById('powerBtn');
+  if (btnEl){
+    btnEl.classList.add('pressed');
+    setTimeout(()=> btnEl.classList.remove('pressed'), 120);
+
+    const pop = document.createElement('div');
+    pop.className = 'count-pop';
+    pop.textContent = state.powerClickCount >= 3 ? '3!' : String(state.powerClickCount);
+    btnEl.appendChild(pop);
+    setTimeout(()=> pop.remove(), 900);
+  }
+
+  const dots = document.getElementById('powerDots');
+  if (dots){
+    [...dots.children].forEach((d,i)=>{
+      d.className = 'w-2 h-2 rounded-full ' +
+        (state.powerClickCount >= i+1 ? 'bg-blue-400 shadow-[0_0_8px_rgba(120,170,255,0.8)]' : 'bg-white/25');
+    });
+  }
+
+  if (state.powerClickResetTimer){ clearTimeout(state.powerClickResetTimer); }
+
+  if (state.powerClickCount >= 3){
+    state.powerClickCount = 0;
+    triggerSOS();
+    return;
+  }
+  state.powerClickResetTimer = setTimeout(()=>{
+    state.powerClickCount = 0;
+    state.powerClickResetTimer = null;
+    const d = document.getElementById('powerDots');
+    if (d) [...d.children].forEach(c=> c.className = 'w-2 h-2 rounded-full bg-white/25');
+  }, 1200);
+}
+
+function slideComplete(){
+  if (state.sending) return;
+  trackClick();
+  triggerSOS();
+}
+
+function endSession(){
+  trackClick();
+  state.tEnd = performance.now();
+
+  const setupTime     = (state.tSetupSaved && state.tStart) ? (state.tSetupSaved - state.tStart)/1000 : 0;
+  const lockToTrigger = (state.tFirstTrigger && state.tSetupSaved) ? (state.tFirstTrigger - state.tSetupSaved)/1000 : 0;
+  const triggerToSent = (state.tSent && state.tTrigger) ? (state.tSent - state.tTrigger)/1000 : 0;
+  const sessionTotal  = state.tStart ? (state.tEnd - state.tStart)/1000 : 0;
+  const tsIso         = new Date().toISOString();
+
+  const esc = (v)=>{
+    const s = String(v);
+    return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+  };
+
+const headers = [
+    '참가자ID','모드','SOS수신인','클릭횟수','SOS트리거시도횟수',
+    '설정소요시간_초','잠금화면_트리거까지_초','트리거_전송완료까지_초','세션_총소요시간_초',
+    '타임스탬프','user_agent'
+  ];
+  const row = [
+    state.participantId, state.mode, state.recipientName||'',
+    state.clickCount, state.sosTriggerAttempts,
+    setupTime.toFixed(3), lockToTrigger.toFixed(3), triggerToSent.toFixed(3), sessionTotal.toFixed(3),
+    tsIso, navigator.userAgent
+  ];
+
+  const csv = headers.join(',')+'\n'+row.map(esc).join(',')+'\n';
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `p${state.participantId}_${state.mode}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  const next = state.participantId + 1;
+  state.participantId = next;
+  localStorage.setItem(PID_KEY, String(next));
+  resetTrial();
+  setScreen('start');
+}
+
+function fmtTime(d){
+  return d.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Seoul'});
+}
+function fmtDate(d){
+  return d.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'long',timeZone:'Asia/Seoul'});
+}
+
+/* ── Korea time helper ── */
+function getKoreaParts(){
+  const fmt = new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'});
+  const parts = fmt.formatToParts(new Date());
+  const obj = {};
+  parts.forEach(p=>{ if(p.type!=='literal') obj[p.type]=p.value; });
+  return { year:Number(obj.year), month:Number(obj.month)-1, day:Number(obj.day) };
+}
+
+/* ── Calendar Widget ── */
+function CalendarWidget(){
+  const { year, month, day:today } = getKoreaParts();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const monthName = new Date(year, month, 1).toLocaleDateString('en-US',{month:'long'}).toUpperCase();
+  const dayLabels = ['S','M','T','W','T','F','S'];
+
+  const weekOfToday = Math.floor((today - 1 + firstDay) / 7);
+  const totalWeeks = Math.ceil((daysInMonth + firstDay) / 7);
+  const numWeeks = 3;
+  let startWeek = weekOfToday - 1;
+  if (startWeek < 0) startWeek = 0;
+  if (startWeek + numWeeks > totalWeeks) startWeek = Math.max(0, totalWeeks - numWeeks);
+
+  const cells = [];
+  for (let w=0; w<numWeeks; w++){
+    for (let d=0; d<7; d++){
+      const cellIndex = (startWeek+w)*7 + d;
+      const dayNum = cellIndex - firstDay + 1;
+      if (dayNum < 1 || dayNum > daysInMonth){
+        cells.push(h('div',{class:'w-[14px] h-[14px]'}));
+      } else {
+        const isToday = dayNum === today;
+        cells.push(h('div',{
+          class:'w-[14px] h-[14px] flex items-center justify-center text-[9px] leading-none ' +
+            (isToday ? 'rounded-full bg-red-500 text-white font-semibold' : 'text-white/85')
+        }, String(dayNum)));
+      }
+    }
+  }
+
+  return h('div',{class:'rounded-2xl px-2.5 py-2', style:'background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.16);backdrop-filter:blur(10px);box-shadow:0 4px 16px rgba(0,0,0,0.25);'},
+    h('div',{class:'text-[10px] font-bold text-red-400 mb-1 tracking-wide'}, monthName),
+    h('div',{class:'grid grid-cols-7 gap-x-[3px] gap-y-[2px]'},
+      dayLabels.map(l => h('div',{class:'w-[14px] h-[12px] flex items-center justify-center text-[8px] text-white/60 font-semibold'}, l))
+    ),
+    h('div',{class:'grid grid-cols-7 gap-x-[3px] gap-y-[2px] mt-0.5'}, ...cells)
+  );
+}
+
+/* ── Screens ── */
+
+function StartScreen(){
+  return h('div',{class:'absolute inset-0 flex flex-col items-center justify-center px-8 text-center', style:'background:linear-gradient(180deg,#1a1a1a,#000)'},
+    h('h2',{class:'text-white text-xl font-semibold mb-2'},'Silent SOS'),
+    h('p',{class:'text-neutral-400 text-sm mb-2'},'실험을 시작하려면 버튼을 누르세요.'),
+    h('p',{class:'text-neutral-500 text-xs mb-8'}, 'Mode: ' + (state.mode==='triple'?'Triple Press SOS':'Slide to SOS')),
+    h('button',{class:'px-8 py-3 rounded-full bg-white text-black font-semibold text-sm active:scale-95 transition', onclick:startExperiment},'Start Experiment')
+  );
+}
+
+function SetupScreen(){
+  const nameInput = h('input',{
+    value: state.recipientName,
+    placeholder: '예: 엄마',
+    class: 'w-full bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-3 text-white text-sm mb-6 outline-none focus:border-neutral-600',
+    oninput: (e)=>{ state.recipientName = e.target.value; }
+  });
+  const phoneInput = h('input',{
+    value: PHONE_NUMBER,
+    disabled: true,
+    readonly: true,
+    class: 'w-full bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-3 text-neutral-300 text-sm mb-8 outline-none cursor-not-allowed'
+  });
+
+  return h('div',{class:'absolute inset-0 bg-neutral-950 pt-14 px-6 flex flex-col'},
+    h('h2',{class:'text-white text-2xl font-bold mb-6 text-center'},'설정'),
+    h('label',{class:'block text-neutral-400 text-xs mb-2'},'SOS 수신인'),
+    nameInput,
+    h('label',{class:'block text-neutral-400 text-xs mb-2'},'전화번호'),
+    phoneInput,
+    h('button',{class:'mt-auto mb-8 w-full py-3 rounded-xl bg-white text-black font-semibold text-sm active:scale-95', onclick:saveSetup},'설정 저장')
+  );
+}
+
+function SlideWidget(){
+  const trackW = 130, trackH = 44, pad = 5, knob = 34;
+  const maxX = trackW - pad*2 - knob;
+
+  const fill = h('div',{class:'absolute left-0 top-0 h-full rounded-full', style:`width:${trackH}px;background:#34c759;`});
+  const label = h('div',{class:'absolute inset-0 flex items-center justify-center text-white/80 text-[10px] font-semibold tracking-wider pointer-events-none', style:`padding-left:${knob}px;`},'밀어서 전송 →');
+  const knobEl = h('div',{class:'absolute rounded-full bg-white shadow-lg', style:`width:${knob}px;height:${knob}px;top:${pad}px;left:${pad}px;touch-action:none;cursor:grab;`});
+
+  const done = state.sending;
+  if (done){
+    fill.style.width = (trackW)+'px';
+    knobEl.style.left = (pad+maxX)+'px';
+    knobEl.style.cursor = 'default';
+    label.textContent = '';
+  }
+
+  let curX = done ? maxX : 0, startX = 0, dragging = false;
+
+  function setX(x){
+    curX = Math.max(0, Math.min(maxX, x));
+    knobEl.style.left = (pad+curX)+'px';
+    fill.style.width = (knob+curX+pad)+'px';
+    label.style.opacity = String(1 - curX/maxX);
+  }
+  function finish(){
+    setX(maxX);
+    state.dragging = false;
+    slideComplete();
+  }
+  function snapBack(){
+    knobEl.style.transition = 'left 0.2s ease';
+    fill.style.transition = 'width 0.2s ease';
+    setX(0);
+    setTimeout(()=>{ knobEl.style.transition=''; fill.style.transition=''; }, 220);
+    state.dragging = false;
+  }
+
+  if (!done){
+    knobEl.addEventListener('pointerdown', (e)=>{
+      if (state.sending) return;
+      dragging = true; state.dragging = true;
+      startX = e.clientX - curX;
+      knobEl.style.cursor = 'grabbing';
+      knobEl.setPointerCapture(e.pointerId);
+    });
+    knobEl.addEventListener('pointermove', (e)=>{
+      if (!dragging) return;
+      setX(e.clientX - startX);
+      if (curX >= maxX){ dragging = false; knobEl.style.cursor='default'; finish(); }
+    });
+    knobEl.addEventListener('pointerup', (e)=>{
+      if (!dragging) return;
+      dragging = false;
+      knobEl.style.cursor = 'grab';
+      if (curX >= maxX*0.9){ finish(); } else { snapBack(); }
+    });
+  }
+
+  const track = h('div',{class:'relative rounded-full', style:`width:${trackW}px;height:${trackH}px;background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.28);backdrop-filter:blur(6px);`}, fill, label, knobEl);
+
+  const caption = h('div',{class:'mt-2 text-center'},
+    state.sending
+      ? h('span',{class:'sending-text text-white text-xs font-semibold'}, SendingDots())
+      : h('span',{class:'text-white text-sm font-bold tracking-wider'},'SOS')
+  );
+
+  return h('div',{class:'rounded-2xl px-3 py-3 flex flex-col items-center', style:'background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.16);backdrop-filter:blur(12px);box-shadow:0 4px 16px rgba(0,0,0,0.25);'},
+    track, caption
+  );
+}
+
+function TriplePressPanel(){
+  return h('div',{class:'flex flex-col items-center gap-3'},
+    state.sending
+      ? h('div',{class:'sending-text text-white text-base font-semibold'}, SendingDots())
+      : h('div',{class:'text-white/80 text-sm tracking-wide text-center'},'오른쪽 전원 버튼을 3번 누르세요'),
+    h('div',{id:'powerDots', class:'flex gap-2'},
+      [1,2,3].map(i =>
+        h('div',{
+          class: 'w-2.5 h-2.5 rounded-full ' +
+            (state.powerClickCount >= i ? 'bg-blue-400 shadow-[0_0_8px_rgba(120,170,255,0.8)]' : 'bg-white/25')
+        })
+      )
+    )
+  );
+}
+
+function LockScreen(){
+  const now = new Date();
+
+  const topRow = state.mode === 'slide'
+    ? h('div',{class:'relative w-full px-4 mt-5 flex items-center justify-between gap-2'},
+        CalendarWidget(),
+        SlideWidget()
+      )
+    : h('div',{class:'relative w-full px-4 mt-5 flex items-start justify-start'},
+        CalendarWidget()
+      );
+
+  return h('div',{class:'absolute inset-0 flex flex-col items-center pt-14', style: NIGHT_BG},
+    h('div',{class:'absolute inset-0', style: STARS_BG}),
+    h('div',{class:'absolute bottom-0 left-0 right-0', style:'height:38%;background:linear-gradient(0deg,rgba(60,30,120,0.22) 0%,transparent 100%);pointer-events:none;'}),
+    h('div',{class:'text-neutral-300 text-sm mt-4 relative'}, fmtDate(now)),
+    h('div',{class:'text-white text-7xl font-light tracking-tight mt-2 relative'}, fmtTime(now)),
+    topRow,
+    state.mode === 'triple'
+      ? h('div',{class:'relative mt-auto mb-20 w-full flex justify-center'}, TriplePressPanel())
+      : null,
+    h('div',{class:'absolute bottom-2 left-1/2 -translate-x-1/2 w-32 h-1 bg-white/60 rounded-full'})
+  );
+}
+
+function MessageScreen(){
+  const name = state.recipientName || '수신인';
+  const initial = name.trim().charAt(0) || '?';
+  const now = new Date();
+
+  const statusBar = h('div',{class:'flex items-center justify-between px-6 pt-2 pb-1 text-black text-xs font-semibold'},
+    h('span',{}, fmtTime(now)),
+    h('span',{class:'flex items-center gap-1', html:'<svg width="17" height="11" viewBox="0 0 17 11" fill="black"><rect x="0" y="7" width="3" height="4" rx="0.5"/><rect x="4" y="5" width="3" height="6" rx="0.5"/><rect x="8" y="3" width="3" height="8" rx="0.5"/><rect x="12" y="1" width="3" height="10" rx="0.5"/></svg> <svg width="22" height="11" viewBox="0 0 24 12" fill="none"><rect x="1" y="1" width="19" height="10" rx="2.5" stroke="black" stroke-width="1"/><rect x="2.5" y="2.5" width="14" height="7" rx="1" fill="black"/><rect x="21" y="4" width="1.5" height="4" rx="0.5" fill="black"/></svg>'})
+  );
+
+const header = h('div',{class:'relative border-b border-gray-200 pt-3 pb-2'},
+    h('button',{class:'absolute left-3 top-1/2 -translate-y-1/2', html: SVG.back()}),
+    h('div',{class:'flex flex-col items-center'},
+      h('div',{class:'w-11 h-11 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 text-lg font-medium'}, initial),
+      h('div',{class:'flex items-center gap-0.5 mt-1'},
+        h('span',{class:'text-black text-xs font-medium'}, name),
+        h('span',{html: SVG.chevron()})
+      )
+    )
+  );
+
+  const body = h('div',{class:'flex-1 overflow-y-auto px-3 py-3 flex flex-col', style:'background:#fff;'},
+    h('div',{class:'text-center text-[11px] text-gray-400 mb-3'},
+      h('span',{class:'font-semibold'},'문자 메시지'), ' 오늘 ', fmtTime(now)
+    ),
+    h('div',{class:'flex justify-end mb-1'},
+      h('div',{class:'bubble-in max-w-[78%] rounded-2xl rounded-br-md px-3.5 py-2.5 text-white text-[14px] leading-snug', style:'background:#34c759;'},
+        h('div',{}, 'SOS! 지금 위험한 상황에 있어. 빨리 와줘!'),
+        h('div',{class:'mt-2 pt-2', style:'border-top:1px solid rgba(255,255,255,0.35);'},
+          h('div',{class:'text-[13px] font-semibold'},'📍 현재 위치'),
+          h('div',{class:'text-[13px] opacity-95 mt-0.5'},'Plac Zamkowy, Warszawa')
+        )
+      )
+    ),
+    h('div',{class:'flex justify-end pr-1'},
+      h('span',{class:'text-[10px] text-gray-400'},'전달됨')
+    )
+  );
+
+  const inputBar = h('div',{class:'flex items-center gap-2 px-3 py-2 border-t border-gray-200', style:'background:#fff;'},
+    h('span',{html: SVG.camera()}),
+    h('span',{html: SVG.appstore()}),
+    h('div',{class:'flex-1 flex items-center rounded-full border border-gray-300 px-3 py-1.5'},
+      h('span',{class:'text-gray-400 text-sm flex-1'},'문자 메시지'),
+    ),
+    h('button',{class:'w-8 h-8 rounded-full flex items-center justify-center', style:'background:#34c759;', html: SVG.send()})
+  );
+
+  return h('div',{class:'absolute inset-0 flex flex-col', style:'background:#fff;'},
+    statusBar, header, body, inputBar,
+    h('div',{class:'flex justify-center pb-2 pt-1', style:'background:#fff;'},
+      h('div',{class:'w-32 h-1 rounded-full bg-black/30'})
+    )
+  );
+}
+
+/* ── Layout ── */
+
+function Phone(){
+  let inner;
+  if (state.screen === 'start')        inner = StartScreen();
+  else if (state.screen === 'setup')   inner = SetupScreen();
+  else if (state.screen === 'lock')    inner = LockScreen();
+  else if (state.screen === 'message') inner = MessageScreen();
+
+  const sideButtons = [
+    h('div',{class:'iphone-side-btn', style:'left:-5px; top:7rem; width:5px; height:32px;'}),
+    h('div',{class:'iphone-side-btn', style:'left:-5px; top:11rem; width:5px; height:56px;'}),
+    h('div',{class:'iphone-side-btn', style:'left:-5px; top:16rem; width:5px; height:56px;'}),
+  ];
+
+  const powerInteractive = state.mode === 'triple' && state.screen === 'lock' && !state.sending;
+  const powerBtn = h(powerInteractive ? 'button' : 'div', {
+    id: 'powerBtn',
+    class: 'iphone-side-btn right' + (powerInteractive ? ' iphone-power-btn hint' : ''),
+    style: powerInteractive
+      ? 'right:-5px; top:10rem; width:5px; height:80px;'
+      : 'right:-5px; top:10rem; width:5px; height:80px; opacity:0.35; pointer-events:none;',
+    onclick: powerInteractive ? pressPowerButton : undefined,
+    'aria-label': powerInteractive ? '전원 버튼 (3번 눌러 SOS 전송)' : undefined,
+    title: powerInteractive ? '3번 연속으로 누르세요' : undefined,
+  });
+
+  return h('div',{class:'relative'},
+    h('div',{class:'relative w-[340px] h-[700px] rounded-[55px] bg-neutral-950 border-[3px] border-neutral-800 shadow-[0_0_60px_rgba(0,0,0,0.8)] p-[10px]'},
+      ...sideButtons,
+      powerBtn,
+      h('div',{class:'relative w-full h-full rounded-[45px] overflow-hidden bg-black'},
+        h('div',{class:'absolute top-2 left-1/2 -translate-x-1/2 w-28 h-7 bg-black rounded-full z-30'}),
+        inner
+      )
+    )
+  );
+}
+
+function ModeToggle(){
+  const locked = state.screen !== 'start';
+  const btn = (m, label) => h('button',{
+    class:`flex-1 py-2.5 rounded-md text-sm font-medium transition ${state.mode===m?'bg-blue-600 text-white':'bg-neutral-900 text-neutral-300 hover:bg-neutral-800'} ${locked?'opacity-50 cursor-not-allowed':''}`,
+    onclick: ()=> setMode(m),
+    disabled: locked
+  }, label);
+  return h('div',{class:'rounded-lg bg-neutral-950 border border-neutral-800 p-4 space-y-2'},
+    h('div',{class:'text-neutral-400 text-xs'},'프로토타입 모드'),
+    h('div',{class:'flex gap-2'}, btn('slide','Slide to SOS'), btn('triple','Triple Press SOS')),
+    h('div',{class:'text-[11px] text-neutral-500'}, '실험 시작 전에만 변경 가능')
+  );
+}
+
+function Sidebar(){
+  const modeLabel = state.mode === 'triple' ? 'Triple Press SOS' : 'Slide to SOS';
+  const row = (k,v)=> h('div',{class:'flex justify-between'}, h('span',{class:'text-neutral-400'},k), h('span',{},String(v)));
+  return h('aside',{class:'w-full lg:w-72 space-y-3 text-sm'},
+    h('h1',{class:'text-xl font-semibold'},'Silent SOS'),
+    ModeToggle(),
+    h('div',{class:'rounded-lg bg-neutral-900 border border-neutral-800 p-4 space-y-2'},
+      row('참가자 ID', state.participantId),
+      row('현재 화면', state.screen),
+      row('모드', modeLabel),
+      row('SOS 수신인', state.recipientName || '-'),
+      row('클릭 수', state.clickCount),
+      row('SOS 트리거 시도', state.sosTriggerAttempts)
+    ),
+    state.screen === 'message'
+      ? h('button',{class:'w-full py-2.5 rounded-lg bg-green-600 hover:bg-green-500 text-white text-sm font-semibold active:scale-95', onclick: endSession},'세션 종료 & CSV 저장')
+      : null,
+    h('button',{
+      class:'w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 text-xs',
+      onclick: resetAll,
+      html: SVG.refresh() + '<span class="ml-1">참가자 카운트 초기화</span>'
+    }),
+    h('p',{class:'text-xs text-neutral-500 leading-relaxed'},'세션 종료 시 CSV가 자동으로 다운로드됩니다.')
+  );
+}
+
+function render(){
+  const active   = document.activeElement;
+  const focusTag = active && active.tagName;
+  const selStart = active && active.selectionStart;
+
+  const root = $('#root');
+  root.innerHTML = '';
+  root.append(Sidebar(), Phone());
+
+  if (focusTag === 'INPUT'){
+    const inp = root.querySelector('input:not([disabled])');
+    if (inp){ inp.focus(); try{ inp.setSelectionRange(selStart, selStart);}catch(e){} }
+  }
+}
+
+clockTimer = setInterval(()=>{
+  if (state.screen === 'lock' && !state.dragging && !state.sending) render();
+}, 1000);
+
+render();
+</script>
+</body>
+</html>
