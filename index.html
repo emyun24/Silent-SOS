@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -129,7 +129,7 @@ const SVG = {
 
 function SendingDots(){
   return h('span',{},
-    '전송중',
+    'Sending',
     h('span',{class:'sending-dot'},'.'),
     h('span',{class:'sending-dot'},'.'),
     h('span',{class:'sending-dot'},'.')
@@ -189,7 +189,7 @@ function resetTrial(){
 }
 
 function resetAll(){
-  if (!confirm('참가자 번호와 진행 상태를 모두 초기화합니다. 계속할까요?')) return;
+  if (!confirm('This will reset the participant number and progress. Continue?')) return;
   localStorage.removeItem(PID_KEY);
   state.participantId = 1;
   resetTrial();
@@ -324,10 +324,10 @@ const headers = [
 }
 
 function fmtTime(d){
-  return d.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Seoul'});
+  return d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Seoul'});
 }
 function fmtDate(d){
-  return d.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'long',timeZone:'Asia/Seoul'});
+  return d.toLocaleDateString('en-US',{month:'long',day:'numeric',weekday:'long',timeZone:'Asia/Seoul'});
 }
 
 /* ── Korea time helper ── */
@@ -385,7 +385,7 @@ function CalendarWidget(){
 function StartScreen(){
   return h('div',{class:'absolute inset-0 flex flex-col items-center justify-center px-8 text-center', style:'background:linear-gradient(180deg,#1a1a1a,#000)'},
     h('h2',{class:'text-white text-xl font-semibold mb-2'},'Silent SOS'),
-    h('p',{class:'text-neutral-400 text-sm mb-2'},'실험을 시작하려면 버튼을 누르세요.'),
+    h('p',{class:'text-neutral-400 text-sm mb-2'},'Tap the button to start the experiment.'),
     h('p',{class:'text-neutral-500 text-xs mb-8'}, 'Mode: ' + (state.mode==='triple'?'Triple Press SOS':'Slide to SOS')),
     h('button',{class:'px-8 py-3 rounded-full bg-white text-black font-semibold text-sm active:scale-95 transition', onclick:startExperiment},'Start Experiment')
   );
@@ -394,7 +394,7 @@ function StartScreen(){
 function SetupScreen(){
   const nameInput = h('input',{
     value: state.recipientName,
-    placeholder: '예: 엄마',
+    placeholder: 'e.g. Mom',
     class: 'w-full bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-3 text-white text-sm mb-6 outline-none focus:border-neutral-600',
     oninput: (e)=>{ state.recipientName = e.target.value; }
   });
@@ -406,12 +406,12 @@ function SetupScreen(){
   });
 
   return h('div',{class:'absolute inset-0 bg-neutral-950 pt-14 px-6 flex flex-col'},
-    h('h2',{class:'text-white text-2xl font-bold mb-6 text-center'},'설정'),
-    h('label',{class:'block text-neutral-400 text-xs mb-2'},'SOS 수신인'),
+    h('h2',{class:'text-white text-2xl font-bold mb-6 text-center'},'Setup'),
+    h('label',{class:'block text-neutral-400 text-xs mb-2'},'SOS Contact'),
     nameInput,
-    h('label',{class:'block text-neutral-400 text-xs mb-2'},'전화번호'),
+    h('label',{class:'block text-neutral-400 text-xs mb-2'},'Phone Number'),
     phoneInput,
-    h('button',{class:'mt-auto mb-8 w-full py-3 rounded-xl bg-white text-black font-semibold text-sm active:scale-95', onclick:saveSetup},'설정 저장')
+    h('button',{class:'mt-auto mb-8 w-full py-3 rounded-xl bg-white text-black font-semibold text-sm active:scale-95', onclick:saveSetup},'Save Setup')
   );
 }
 
@@ -420,7 +420,7 @@ function SlideWidget(){
   const maxX = trackW - pad*2 - knob;
 
   const fill = h('div',{class:'absolute left-0 top-0 h-full rounded-full', style:`width:${trackH}px;background:#34c759;`});
-  const label = h('div',{class:'absolute inset-0 flex items-center justify-center text-white/80 text-[10px] font-semibold tracking-wider pointer-events-none', style:`padding-left:${knob}px;`},'밀어서 전송 →');
+  const label = h('div',{class:'absolute inset-0 flex items-center justify-center text-white/80 text-[10px] font-semibold tracking-wider pointer-events-none', style:`padding-left:${knob}px;`},'Slide to send →');
   const knobEl = h('div',{class:'absolute rounded-full bg-white shadow-lg', style:`width:${knob}px;height:${knob}px;top:${pad}px;left:${pad}px;touch-action:none;cursor:grab;`});
 
   const done = state.sending;
@@ -490,7 +490,7 @@ function TriplePressPanel(){
   return h('div',{class:'flex flex-col items-center gap-3'},
     state.sending
       ? h('div',{class:'sending-text text-white text-base font-semibold'}, SendingDots())
-      : h('div',{class:'text-white/80 text-sm tracking-wide text-center'},'오른쪽 전원 버튼을 3번 누르세요'),
+      : h('div',{class:'text-white/80 text-sm tracking-wide text-center'},'Press the side button 3 times'),
     h('div',{id:'powerDots', class:'flex gap-2'},
       [1,2,3].map(i =>
         h('div',{
@@ -528,7 +528,7 @@ function LockScreen(){
 }
 
 function MessageScreen(){
-  const name = state.recipientName || '수신인';
+  const name = state.recipientName || 'Contact';
   const initial = name.trim().charAt(0) || '?';
   const now = new Date();
 
@@ -550,19 +550,19 @@ const header = h('div',{class:'relative border-b border-gray-200 pt-3 pb-2'},
 
   const body = h('div',{class:'flex-1 overflow-y-auto px-3 py-3 flex flex-col', style:'background:#fff;'},
     h('div',{class:'text-center text-[11px] text-gray-400 mb-3'},
-      h('span',{class:'font-semibold'},'문자 메시지'), ' 오늘 ', fmtTime(now)
+      h('span',{class:'font-semibold'},'Text Message'), ' Today ', fmtTime(now)
     ),
     h('div',{class:'flex justify-end mb-1'},
       h('div',{class:'bubble-in max-w-[78%] rounded-2xl rounded-br-md px-3.5 py-2.5 text-white text-[14px] leading-snug', style:'background:#34c759;'},
-        h('div',{}, 'SOS! 지금 위험한 상황에 있어. 빨리 와줘!'),
+        h('div',{}, "SOS! I'm in danger right now. Please come quickly!"),
         h('div',{class:'mt-2 pt-2', style:'border-top:1px solid rgba(255,255,255,0.35);'},
-          h('div',{class:'text-[13px] font-semibold'},'📍 현재 위치'),
+          h('div',{class:'text-[13px] font-semibold'},'📍 Current Location'),
           h('div',{class:'text-[13px] opacity-95 mt-0.5'},'Plac Zamkowy, Warszawa')
         )
       )
     ),
     h('div',{class:'flex justify-end pr-1'},
-      h('span',{class:'text-[10px] text-gray-400'},'전달됨')
+      h('span',{class:'text-[10px] text-gray-400'},'Delivered')
     )
   );
 
@@ -570,7 +570,7 @@ const header = h('div',{class:'relative border-b border-gray-200 pt-3 pb-2'},
     h('span',{html: SVG.camera()}),
     h('span',{html: SVG.appstore()}),
     h('div',{class:'flex-1 flex items-center rounded-full border border-gray-300 px-3 py-1.5'},
-      h('span',{class:'text-gray-400 text-sm flex-1'},'문자 메시지'),
+      h('span',{class:'text-gray-400 text-sm flex-1'},'Text Message'),
     ),
     h('button',{class:'w-8 h-8 rounded-full flex items-center justify-center', style:'background:#34c759;', html: SVG.send()})
   );
@@ -606,8 +606,8 @@ function Phone(){
       ? 'right:-5px; top:10rem; width:5px; height:80px;'
       : 'right:-5px; top:10rem; width:5px; height:80px; opacity:0.35; pointer-events:none;',
     onclick: powerInteractive ? pressPowerButton : undefined,
-    'aria-label': powerInteractive ? '전원 버튼 (3번 눌러 SOS 전송)' : undefined,
-    title: powerInteractive ? '3번 연속으로 누르세요' : undefined,
+    'aria-label': powerInteractive ? 'Side button (press 3 times to send SOS)' : undefined,
+    title: powerInteractive ? 'Press 3 times in a row' : undefined,
   });
 
   return h('div',{class:'relative'},
@@ -630,9 +630,9 @@ function ModeToggle(){
     disabled: locked
   }, label);
   return h('div',{class:'rounded-lg bg-neutral-950 border border-neutral-800 p-4 space-y-2'},
-    h('div',{class:'text-neutral-400 text-xs'},'프로토타입 모드'),
+    h('div',{class:'text-neutral-400 text-xs'},'Prototype Mode'),
     h('div',{class:'flex gap-2'}, btn('slide','Slide to SOS'), btn('triple','Triple Press SOS')),
-    h('div',{class:'text-[11px] text-neutral-500'}, '실험 시작 전에만 변경 가능')
+    h('div',{class:'text-[11px] text-neutral-500'}, 'Can only be changed before starting')
   );
 }
 
@@ -643,22 +643,22 @@ function Sidebar(){
     h('h1',{class:'text-xl font-semibold'},'Silent SOS'),
     ModeToggle(),
     h('div',{class:'rounded-lg bg-neutral-900 border border-neutral-800 p-4 space-y-2'},
-      row('참가자 ID', state.participantId),
-      row('현재 화면', state.screen),
-      row('모드', modeLabel),
-      row('SOS 수신인', state.recipientName || '-'),
-      row('클릭 수', state.clickCount),
-      row('SOS 트리거 시도', state.sosTriggerAttempts)
+      row('Participant ID', state.participantId),
+      row('Current Screen', state.screen),
+      row('Mode', modeLabel),
+      row('SOS Contact', state.recipientName || '-'),
+      row('Click Count', state.clickCount),
+      row('SOS Trigger Attempts', state.sosTriggerAttempts)
     ),
     state.screen === 'message'
-      ? h('button',{class:'w-full py-2.5 rounded-lg bg-green-600 hover:bg-green-500 text-white text-sm font-semibold active:scale-95', onclick: endSession},'세션 종료 & CSV 저장')
+      ? h('button',{class:'w-full py-2.5 rounded-lg bg-green-600 hover:bg-green-500 text-white text-sm font-semibold active:scale-95', onclick: endSession},'End Session & Save CSV')
       : null,
     h('button',{
       class:'w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 text-xs',
       onclick: resetAll,
-      html: SVG.refresh() + '<span class="ml-1">참가자 카운트 초기화</span>'
+      html: SVG.refresh() + '<span class="ml-1">Reset Participant Count</span>'
     }),
-    h('p',{class:'text-xs text-neutral-500 leading-relaxed'},'세션 종료 시 CSV가 자동으로 다운로드됩니다.')
+    h('p',{class:'text-xs text-neutral-500 leading-relaxed'},'A CSV file will be downloaded automatically when the session ends.')
   );
 }
 
